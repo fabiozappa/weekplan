@@ -1,0 +1,1416 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#030712">
+  <title>Weekly Agenda</title>
+  <script>
+    // Deve girare prima di qualsiasi pittura: legge la preferenza salvata,
+    // altrimenti segue quella di sistema.
+    (() => {
+      let saved = null;
+      try { saved = localStorage.getItem('weekplan-theme'); } catch {}
+      const light = saved ? saved === 'light' : !window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = light ? 'light' : 'dark';
+    })();
+  </script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] },
+          colors: {
+            // Non sono grigi veri: sono ruoli (950 = sfondo pagina, 100 = testo
+            // principale) che il tema chiaro rovescia. Vedi le variabili in <style>.
+            gray: Object.fromEntries([100, 200, 300, 400, 500, 600, 700, 800, 900, 950]
+              .map((shade) => [shade, `rgb(var(--c-${shade}) / <alpha-value>)`])),
+            danger: 'rgb(var(--c-danger) / <alpha-value>)',
+            warn:   'rgb(var(--c-warn) / <alpha-value>)',
+            now:    'rgb(var(--c-now) / <alpha-value>)'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --c-950:   3   7  18;   /* sfondo pagina   */
+      --c-900:  17  24  39;   /* card, pannelli  */
+      --c-800:  31  41  55;   /* bordi           */
+      --c-700:  55  65  81;
+      --c-600:  75  85  99;
+      --c-500: 107 114 128;
+      --c-400: 156 163 175;
+      --c-300: 209 213 219;
+      --c-200: 229 231 235;
+      --c-100: 243 244 246;   /* testo principale */
+      --c-danger: 248 113 113;
+      --c-warn:   251 191  36;
+      --c-now:    244  63  94;
+      --c-line: rgba(255, 255, 255, 0.12);
+      --c-line-fade: rgba(255, 255, 255, 0.03);
+      color-scheme: dark;
+    }
+
+    :root[data-theme="light"] {
+      --c-950: 255 255 255;
+      --c-900: 243 244 246;
+      --c-800: 229 231 235;
+      --c-700: 209 213 219;
+      --c-600: 156 163 175;
+      --c-500: 107 114 128;
+      --c-400:  75  85  99;
+      --c-300:  55  65  81;
+      --c-200:  31  41  55;
+      --c-100:  17  24  39;
+      --c-danger: 220  38  38;
+      --c-warn:   180  83   9;
+      --c-now:    225  29  72;
+      --c-line: rgba(15, 23, 42, 0.14);
+      --c-line-fade: rgba(15, 23, 42, 0.04);
+      color-scheme: light;
+    }
+
+    body { font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+    .timeline-line { position: absolute; left: 24px; top: 0; bottom: 0; width: 2px; background: linear-gradient(to bottom, var(--c-line), var(--c-line-fade)); }
+    @media (min-width: 768px) { .timeline-line { left: 50%; transform: translateX(-50%); } }
+    .task-card { transition: transform 0.2s ease; }
+    .task-card:active { transform: scale(0.99); }
+    .checkbox-ring { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
+    .checkbox-ring.checked { background: currentColor; }
+    .checkbox-ring.checked svg { opacity: 1; transform: scale(1); }
+    .slide-in { animation: slideIn 0.3s ease-out; }
+    @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+    .modal-enter { animation: modalEnter 0.25s ease-out; }
+    @keyframes modalEnter { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+    /* La card riempie la riga, la cui altezza è proporzionale alla durata. */
+    .stretch > * { flex: 1 1 auto; }
+
+    /* I titoli importati sono lunghi: due righe invece del troncamento secco. */
+    .clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .hide-scrollbar::-webkit-scrollbar { display: none; }
+    .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+  </style>
+</head>
+<body class="bg-gray-950 text-gray-100 min-h-screen">
+
+  <!-- ------------------------------------------------------------------ LOGIN -->
+  <div id="login-screen" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-gray-950 p-6">
+    <button type="button" data-theme-toggle title="Cambia tema" aria-label="Cambia tema"
+      class="absolute top-4 right-4 p-2 rounded-xl hover:bg-gray-900 transition-colors text-gray-400 hover:text-gray-100">
+      <svg data-theme-icon="moon" class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+      <svg data-theme-icon="sun" class="w-5 h-5 pointer-events-none hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+    </button>
+    <div class="w-full max-w-sm">
+      <div class="text-center mb-10">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+          <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+        </div>
+        <h1 class="text-2xl font-bold tracking-tight">Weekly Agenda</h1>
+        <p class="text-gray-400 text-sm mt-1">La tua settimana strutturata</p>
+      </div>
+      <form id="login-form" class="space-y-4" autocomplete="on">
+        <div>
+          <label for="login-user" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Username</label>
+          <input type="text" id="login-user" name="username" autocomplete="username" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Inserisci username" required>
+        </div>
+        <div>
+          <label for="login-pass" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Password</label>
+          <input type="password" id="login-pass" name="password" autocomplete="current-password" class="w-full bg-gray-900 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Inserisci password" required>
+        </div>
+        <button type="submit" id="login-submit" class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-medium py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20">Accedi</button>
+        <p id="login-error" class="text-danger text-sm text-center hidden"></p>
+      </form>
+    </div>
+  </div>
+
+  <!-- -------------------------------------------------------------------- APP -->
+  <div id="app-screen" class="hidden min-h-screen flex flex-col">
+    <header class="sticky top-0 z-30 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/50">
+      <div data-layout-width class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+            <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+          </div>
+          <div>
+            <h1 class="font-bold text-lg leading-tight">Weekly Agenda</h1>
+            <p id="current-date" class="text-xs text-gray-400 capitalize"></p>
+          </div>
+        </div>
+        <div class="flex items-center gap-1">
+          <button type="button" id="btn-subscribe" title="Sottoscrivi da calendario" aria-label="Sottoscrivi da calendario"
+            class="p-2 rounded-xl hover:bg-gray-900 transition-colors text-gray-400 hover:text-gray-100">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 14v4m-2-2h4"></path></svg>
+          </button>
+          <button type="button" data-theme-toggle title="Cambia tema" aria-label="Cambia tema"
+            class="p-2 rounded-xl hover:bg-gray-900 transition-colors text-gray-400 hover:text-gray-100">
+            <svg data-theme-icon="moon" class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+            <svg data-theme-icon="sun" class="w-5 h-5 pointer-events-none hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          </button>
+          <button type="button" id="btn-logout" title="Esci" aria-label="Esci"
+            class="p-2 rounded-xl hover:bg-gray-900 transition-colors text-gray-400 hover:text-gray-100">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+          </button>
+        </div>
+      </div>
+      <div class="border-t border-gray-800/50">
+        <div data-layout-width class="max-w-2xl mx-auto">
+          <div class="flex overflow-x-auto hide-scrollbar px-2 py-2 gap-1" id="day-selector" role="tablist"></div>
+        </div>
+      </div>
+      <div class="h-0.5 bg-gray-900">
+        <div id="progress-bar" class="h-full bg-blue-500 transition-all duration-300" style="width:0%"></div>
+      </div>
+    </header>
+
+    <main data-layout-width class="flex-1 max-w-2xl mx-auto w-full px-4 py-6">
+      <div id="week-view" class="hidden"></div>
+
+      <div id="day-view">
+      <div class="flex items-center justify-between mb-5">
+        <div class="flex items-center gap-2">
+          <h2 id="day-title" class="text-xl font-bold capitalize"></h2>
+          <button type="button" id="btn-copy-day" title="Copia questo giorno su altri giorni"
+            class="p-1.5 rounded-lg text-gray-500 hover:text-gray-200 hover:bg-gray-900 transition-colors">
+            <svg class="w-4 h-4 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>
+          </button>
+        </div>
+        <span id="day-progress" class="text-xs text-gray-500"></span>
+      </div>
+      <div id="timeline-container" class="relative">
+        <div class="timeline-line"></div>
+        <div id="tasks-list" class="space-y-2"></div>
+        <div id="empty-state" class="hidden text-center py-16">
+          <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gray-900 flex items-center justify-center">
+            <svg class="w-8 h-8 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+          </div>
+          <p class="text-gray-500 text-sm">Nessuna attività pianificata</p>
+          <p class="text-gray-600 text-xs mt-1">Tocca + per aggiungere</p>
+        </div>
+      </div>
+      </div>
+    </main>
+
+    <button type="button" id="btn-add" title="Nuova attività" class="fixed bottom-6 right-6 w-14 h-14 bg-blue-600 hover:bg-blue-500 text-white rounded-full shadow-lg shadow-blue-600/30 flex items-center justify-center transition-all hover:scale-105 active:scale-95 z-20">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+    </button>
+  </div>
+
+  <!-- ------------------------------------------------------------------ MODAL -->
+  <div id="modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-close></div>
+    <div class="relative bg-gray-900 w-full sm:w-[420px] sm:rounded-2xl rounded-t-2xl border border-gray-800 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 id="modal-title" class="text-lg font-bold">Nuova attività</h2>
+          <button type="button" data-close class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 transition-colors">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <form id="task-form" class="space-y-4">
+          <input type="hidden" id="task-id">
+          <div>
+            <label for="task-title" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Icona e titolo</label>
+            <div class="flex gap-2">
+              <input type="text" id="task-icon" aria-label="Icona" autocomplete="off"
+                class="w-14 flex-shrink-0 bg-gray-950 border border-gray-800 rounded-xl px-2 py-3 text-lg text-center focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                placeholder="🙂">
+              <input type="text" id="task-title" maxlength="120" class="flex-1 min-w-0 bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Es. Palestra" required>
+            </div>
+            <div id="icon-suggestions" class="flex flex-wrap gap-1 mt-2"></div>
+          </div>
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label for="task-time" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Ora inizio</label>
+              <input type="time" id="task-time" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" required>
+            </div>
+            <div>
+              <label for="task-end" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Ora fine</label>
+              <input type="time" id="task-end" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" required>
+            </div>
+          </div>
+          <p id="duration-hint" class="text-xs text-gray-500 -mt-1"></p>
+          <div>
+            <span class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Categoria</span>
+            <div class="grid grid-cols-3 gap-2" id="category-selector"></div>
+          </div>
+          <div>
+            <label for="task-note" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Note <span class="normal-case tracking-normal text-gray-600">(facoltative)</span></label>
+            <textarea id="task-note" rows="3" maxlength="500" class="w-full bg-gray-950 border border-gray-800 rounded-xl px-4 py-3 text-sm resize-y focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors" placeholder="Dettagli, promemoria, sottopassaggi&hellip;"></textarea>
+          </div>
+          <p id="modal-error" class="text-danger text-sm hidden"></p>
+          <div class="flex gap-3 pt-2">
+            <button type="button" id="btn-delete" class="hidden px-4 py-3 rounded-xl border border-danger/40 text-danger hover:bg-danger/10 text-sm font-medium transition-colors">Elimina</button>
+            <button type="submit" id="btn-save" class="flex-1 bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-medium py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20">Salva</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------ COPIA GIORNO -->
+  <div id="copy-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-close-copy></div>
+    <div class="relative bg-gray-900 w-full sm:w-[420px] sm:rounded-2xl rounded-t-2xl border border-gray-800 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-lg font-bold">Copia giorno</h2>
+          <button type="button" data-close-copy class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 transition-colors">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <p id="copy-intro" class="text-sm text-gray-400 mb-5"></p>
+        <form id="copy-form" class="space-y-4">
+          <div class="space-y-1.5" id="copy-targets"></div>
+          <p class="text-xs text-warn/80">Le attività già presenti nei giorni scelti vengono sostituite.</p>
+          <p id="copy-error" class="text-danger text-sm hidden"></p>
+          <button type="submit" id="btn-copy-confirm" class="w-full bg-blue-600 hover:bg-blue-500 disabled:opacity-60 text-white font-medium py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20">Copia</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------ SOTTOSCRIZIONE -->
+  <div id="ics-modal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" data-close-ics></div>
+    <div class="relative bg-gray-900 w-full sm:w-[460px] sm:rounded-2xl rounded-t-2xl border border-gray-800 shadow-2xl modal-enter max-h-[90vh] overflow-y-auto">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="text-lg font-bold">Sottoscrivi da calendario</h2>
+          <button type="button" data-close-ics class="p-1.5 rounded-lg hover:bg-gray-800 text-gray-400 transition-colors">
+            <svg class="w-5 h-5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+          </button>
+        </div>
+        <p class="text-sm text-gray-400 mb-5">La routine diventa un calendario in sola lettura, con eventi che si ripetono ogni settimana. Il tuo calendario lo rilegge da solo.</p>
+
+        <div class="mb-4">
+          <span class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Categorie da includere</span>
+          <div class="grid grid-cols-3 gap-2" id="ics-categories"></div>
+          <p class="text-xs text-gray-600 mt-1.5">Nessuna selezionata = tutte. Puoi crearne più di uno, per esempio solo Lavoro nel calendario di lavoro.</p>
+        </div>
+
+        <label for="ics-url" class="block text-xs font-medium text-gray-400 mb-1.5 uppercase tracking-wider">Indirizzo del calendario</label>
+        <div class="flex gap-2 mb-4">
+          <input type="text" id="ics-url" readonly class="flex-1 min-w-0 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2.5 text-xs font-mono text-gray-300 focus:outline-none focus:border-blue-500">
+          <button type="button" id="btn-copy-ics" class="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-800 hover:bg-gray-800 text-sm font-medium transition-colors">Copia</button>
+        </div>
+
+        <a id="ics-webcal" href="#" class="block w-full text-center bg-blue-600 hover:bg-blue-500 text-white font-medium py-3 rounded-xl transition-colors shadow-lg shadow-blue-600/20 mb-5">Apri nell'app Calendario</a>
+
+        <div class="text-xs text-gray-500 space-y-1.5">
+          <p><span class="text-gray-300 font-medium">Apple Calendar, iPhone:</span> tocca il bottone qui sopra.</p>
+          <p><span class="text-gray-300 font-medium">Google Calendar:</span> Altri calendari &rarr; Da URL &rarr; incolla l'indirizzo.</p>
+          <p><span class="text-gray-300 font-medium">Outlook:</span> Aggiungi calendario &rarr; Sottoscrivi dal Web.</p>
+          <p class="pt-1 text-warn/90">L'indirizzo contiene una chiave segreta: chi lo riceve vede la tua routine. Per revocarlo, cambia <span class="font-mono">ICS_TOKEN</span> in config.php.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="hidden fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm shadow-lg border max-w-[90vw] text-center"></div>
+
+  <script>
+  (() => {
+    'use strict';
+
+    const DAYS = ['lunedi', 'martedi', 'mercoledi', 'giovedi', 'venerdi', 'sabato', 'domenica'];
+    const DAY_SHORT = { lunedi: 'Lun', martedi: 'Mar', mercoledi: 'Mer', giovedi: 'Gio', venerdi: 'Ven', sabato: 'Sab', domenica: 'Dom' };
+    const DAY_LONG  = { lunedi: 'Lunedì', martedi: 'Martedì', mercoledi: 'Mercoledì', giovedi: 'Giovedì', venerdi: 'Venerdì', sabato: 'Sabato', domenica: 'Domenica' };
+
+    // Tinte che cambiano col tema: grigio delle attività fatte e ambra dei blocchi
+    // sovrapposti. Su fondo chiaro le versioni scure sono le uniche leggibili.
+    const THEME_COLORS = {
+      dark:  { done: '#4b5563', warn: '#fbbf24' },
+      light: { done: '#9ca3af', warn: '#b45309' }
+    };
+    const FALLBACK_CATEGORY = { label: 'Senza categoria', color: '#64748b' };
+    const SUGGESTED_ICONS = ['🏋️', '🏃', '🧘', '🚿', '🐕', '🍽️', '☕', '💻', '📞', '📚',
+                             '🇬🇧', '🛒', '🧹', '📝', '🎧', '🛏️', '🚶', '💊', '🎯', '🌙'];
+    const THEME_KEY = 'weekplan-theme';
+
+    const $ = (id) => document.getElementById(id);
+
+    let data = null;
+    let csrf = '';
+    let categories = {};            // arriva da config.php via l'endpoint "data"
+    let currentDay = weekdayToday();
+    let selectedCategory = null;
+    let busy = false;
+    let markerIndex = null;         // posizione della riga "adesso" nell'ultimo render
+    let rowStarts = [];             // minuto d'inizio di ogni riga disegnata
+
+    // Da 1024px in su la vista predefinita è la settimana; sotto resta il giorno.
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    let view = desktopQuery.matches ? 'week' : 'day';
+    let centeredOnNow = false;
+    let isLight = document.documentElement.dataset.theme === 'light';
+
+    // ------------------------------------------------------------------ utils
+
+    const escapeHtml = (value) => String(value).replace(/[&<>"']/g, (c) => (
+      { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+    ));
+
+    // Dichiarata (non const) perché serve già durante l'inizializzazione di currentDay.
+    function weekdayToday() {
+      return DAYS[(new Date().getDay() + 6) % 7];
+    }
+
+    const nowMinutes = () => {
+      const now = new Date();
+      return now.getHours() * 60 + now.getMinutes();
+    };
+
+    const rgb = (hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16));
+
+    const shift = (hex, amount, target) => {
+      const [r, g, b] = rgb(hex).map((c) => Math.round(c + (target - c) * amount));
+      return `rgb(${r},${g},${b})`;
+    };
+
+    /**
+     * Tinta leggibile per testo ed etichette: la categoria a piena saturazione non
+     * si legge né su fondo scuro né su fondo chiaro, quindi va schiarita nel primo
+     * caso e scurita nel secondo.
+     */
+    const readable = (hex) => (isLight ? shift(hex, 0.35, 0) : shift(hex, 0.3, 255));
+
+    const fade = (hex, alpha) => `rgba(${rgb(hex).join(',')},${alpha})`;
+
+    const themeColor = (name) => THEME_COLORS[isLight ? 'light' : 'dark'][name];
+
+    const categoryOf = (task) => categories[task.color] || FALLBACK_CATEGORY;
+
+    /** Tiene il primo "carattere percepito": 👨‍💻 è uno solo, non tre. */
+    function firstGrapheme(value) {
+      const text = String(value || '').replace(/\s/g, '');
+      if (!text) return '';
+      if (typeof Intl.Segmenter === 'function') {
+        const [first] = new Intl.Segmenter().segment(text);
+        return first ? first.segment : '';
+      }
+      return [...text][0] || '';
+    }
+
+    /** Tinta effettiva della card: le attività fatte diventano grigie. */
+    const accentOf = (task, isDone) => (isDone ? themeColor('done') : categoryOf(task).color);
+
+    const DAY_END = 23 * 60 + 59;
+
+    const toMinutes = (clock) => {
+      const [h, m] = String(clock).split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+
+    const toClock = (minutes) => {
+      const value = Math.max(0, Math.min(DAY_END, minutes));
+      return String(Math.floor(value / 60)).padStart(2, '0') + ':' + String(value % 60).padStart(2, '0');
+    };
+
+    /** 90 -> "1h30m", 45 -> "45m", 120 -> "2h" */
+    function formatDuration(minutes) {
+      const h = Math.floor(minutes / 60), m = minutes % 60;
+      return (h ? h + 'h' : '') + (m ? m + 'm' : '') || '0m';
+    }
+
+    const taskMinutes = (task) => Math.max(0, toMinutes(task.end) - toMinutes(task.time));
+
+    /**
+     * Raggruppa le attività che si accavallano: un blocco resta aperto finché
+     * la successiva inizia prima della fine più lontana già incontrata.
+     */
+    function buildClusters(tasks) {
+      const clusters = [];
+      for (const task of tasks) {
+        const start = toMinutes(task.time);
+        const end = toMinutes(task.end);
+        const last = clusters[clusters.length - 1];
+        if (last && start < last.end) {
+          last.tasks.push(task);
+          last.end = Math.max(last.end, end);
+        } else {
+          clusters.push({ start, end, tasks: [task] });
+        }
+      }
+      return clusters;
+    }
+
+    let toastTimer = null;
+    function toast(message, kind = 'error') {
+      const el = $('toast');
+      el.textContent = message;
+      el.className = 'fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl text-sm shadow-lg border max-w-[90vw] text-center ' + (
+        kind === 'error'
+          ? 'bg-danger/10 border-danger/40 text-danger'
+          : 'bg-gray-900 border-gray-800 text-gray-200'
+      );
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    class ApiError extends Error {
+      constructor(message, status) { super(message); this.status = status; }
+    }
+
+    /** Unico ingresso dei dati: tiene allineate anche le categorie. */
+    async function loadData() {
+      data = await api('data');
+      categories = data.categories || {};
+      if (!selectedCategory || !categories[selectedCategory]) {
+        selectedCategory = Object.keys(categories)[0] || null;
+      }
+    }
+
+    async function api(action, body) {
+      const options = { headers: {} };
+      if (body !== undefined) {
+        options.method = 'POST';
+        options.headers['Content-Type'] = 'application/json';
+        options.headers['X-CSRF-Token'] = csrf;
+        options.body = JSON.stringify(body);
+      }
+      let res;
+      try {
+        res = await fetch('index.php?action=' + action, options);
+      } catch {
+        throw new ApiError('Server non raggiungibile', 0);
+      }
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new ApiError(payload.error || 'Errore imprevisto', res.status);
+      return payload;
+    }
+
+    /** Wrapper per le azioni utente: gestisce sessione scaduta e messaggi d'errore. */
+    async function run(fn) {
+      if (busy) return false;
+      busy = true;
+      try {
+        await fn();
+        return true;
+      } catch (err) {
+        if (err.status === 401) {
+          showLogin('Sessione scaduta, accedi di nuovo');
+        } else {
+          toast(err.message);
+        }
+        return false;
+      } finally {
+        busy = false;
+      }
+    }
+
+    // ------------------------------------------------------------- schermate
+
+    function showLogin(message = '') {
+      $('app-screen').classList.add('hidden');
+      $('login-screen').classList.remove('hidden');
+      const error = $('login-error');
+      error.textContent = message;
+      error.classList.toggle('hidden', !message);
+    }
+
+    function showApp() {
+      $('login-screen').classList.add('hidden');
+      $('app-screen').classList.remove('hidden');
+      $('current-date').textContent = new Date().toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+      renderCategorySelector();
+    }
+
+    // ---------------------------------------------------------------- render
+
+    function renderDaySelector() {
+      const tab = (attrs, label, active, extra = '') => `
+        <button type="button" role="tab" aria-selected="${active}" ${attrs}
+          class="flex-shrink-0 px-4 py-2 rounded-xl border text-sm font-medium transition-colors ${extra} ${
+            active ? 'bg-gray-800 border-gray-700 text-gray-100' : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-gray-900'
+          }">${label}</button>`;
+
+      $('day-selector').innerHTML =
+        tab('data-week-tab', 'Settimana', view === 'week', 'hidden lg:block') +
+        DAYS.map((day) => tab(`data-day="${day}"`, DAY_SHORT[day], view === 'day' && day === currentDay)).join('');
+    }
+
+    function renderCategorySelector() {
+      $('category-selector').innerHTML = Object.entries(categories).map(([key, cat]) => {
+        const on = selectedCategory === key;
+        const style = on
+          ? `border-color:${cat.color};background:${fade(cat.color, 0.18)};color:${readable(cat.color)}`
+          : '';
+        return `<button type="button" data-category="${key}" style="${style}"
+          class="px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+            on ? '' : 'border-gray-800 text-gray-400 hover:border-gray-700'
+          }">${escapeHtml(cat.label)}</button>`;
+      }).join('');
+    }
+
+    /**
+     * La card vera e propria. Dentro un blocco sovrapposto `showTime` resta true
+     * anche su desktop: lì la colonna di sinistra mostra il range del blocco,
+     * non quello della singola attività.
+     */
+    function renderCard(task, isDone, showTime = false) {
+      const cat = categoryOf(task);
+      const accent = accentOf(task, isDone);
+      const title = escapeHtml(task.title);
+      const range = escapeHtml(task.time) + '&ndash;' + escapeHtml(task.end);
+      return `
+        <div data-edit="${task.id}" style="border-left-color:${accent}"
+          class="task-card border-l-4 rounded-xl p-4 cursor-pointer transition-colors ${
+            isDone ? 'bg-gray-900/40 opacity-60 hover:opacity-90' : 'bg-gray-900/80 hover:bg-gray-800/80'
+          }">
+          <div class="flex items-start gap-3">
+            ${task.icon ? `<div class="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-lg pointer-events-none"
+                 style="background:${fade(accent, 0.14)}">${escapeHtml(task.icon)}</div>` : ''}
+            <div class="flex-1 min-w-0 pointer-events-none">
+              <div class="flex items-center gap-2 mb-1 ${showTime ? '' : 'md:hidden'}">
+                <span class="text-xs font-semibold" style="color:${readable(accent)}">${range}</span>
+                <span class="text-xs text-gray-600">&bull;</span>
+                <span class="text-xs text-gray-500">${formatDuration(taskMinutes(task))}</span>
+              </div>
+              <h3 class="font-medium text-sm clamp-2 ${isDone ? 'line-through text-gray-500' : 'text-gray-100'}" title="${title}">${title}</h3>
+              ${task.note ? `<p class="text-xs text-gray-500 mt-1 clamp-2 whitespace-pre-line" title="${escapeHtml(task.note)}">${escapeHtml(task.note)}</p>` : ''}
+              <span class="inline-flex items-center gap-1 mt-1.5 text-xs px-2 py-0.5 rounded-md"
+                style="color:${readable(accent)};background:${fade(accent, 0.12)}">
+                <span class="w-1.5 h-1.5 rounded-full" style="background:${accent}"></span>${escapeHtml(cat.label)}
+              </span>
+            </div>
+            <button type="button" data-toggle="${task.id}" aria-pressed="${isDone}" aria-label="Segna come completata"
+              style="${isDone ? `color:${accent};border-color:${accent}` : ''}"
+              class="checkbox-ring flex-shrink-0 w-7 h-7 rounded-full border-2 flex items-center justify-center ${
+                isDone ? 'checked' : 'border-gray-700 text-transparent hover:border-gray-500'
+              }">
+              <svg class="w-4 h-4 opacity-0 scale-50 transition-all pointer-events-none text-gray-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+            </button>
+          </div>
+        </div>`;
+    }
+
+    /** Mini diagramma a barre: una riga per attività, asse comune al blocco. */
+    function renderOverlapChart(cluster, doneIds) {
+      const span = Math.max(1, cluster.end - cluster.start);
+      const bars = cluster.tasks.map((task) => {
+        const accent = accentOf(task, doneIds.includes(task.id));
+        const left = (toMinutes(task.time) - cluster.start) / span * 100;
+        const width = Math.max(3, taskMinutes(task) / span * 100);
+        return `<div class="relative h-1.5 rounded-full bg-gray-800/80">
+            <div class="absolute inset-y-0 rounded-full" style="left:${left}%;width:${Math.min(width, 100 - left)}%;background:${accent}"></div>
+          </div>`;
+      }).join('');
+
+      return `
+        <div class="space-y-1">${bars}</div>
+        <div class="flex justify-between text-[10px] text-gray-500 mt-1.5">
+          <span>${toClock(cluster.start)}</span><span>${toClock(cluster.end)}</span>
+        </div>`;
+    }
+
+    /** Riga della timeline: pallino, orario a sinistra su desktop, contenuto a destra. */
+    /*
+     * Altezza proporzionale alla durata, ma vincolata: sotto MIN_ROW la card non
+     * starebbe in piedi (titolo + categoria + spunta), sopra MAX_ROW un blocco da
+     * quattro ore mangerebbe due schermate senza dire niente di più.
+     */
+    const PX_PER_MIN = 1.5;
+    const MIN_ROW = 76;
+    const MAX_ROW = 280;
+    const MIN_GAP_ROW = 34;
+    const MAX_GAP_ROW = 120;
+
+    const rowHeight = (minutes) => Math.round(Math.min(MAX_ROW, Math.max(MIN_ROW, minutes * PX_PER_MIN)));
+    const gapHeight = (minutes) => Math.round(Math.min(MAX_GAP_ROW, Math.max(MIN_GAP_ROW, minutes * PX_PER_MIN)));
+
+    function renderRow(accent, timeLabel, subLabel, content, minutes) {
+      return `
+        <div class="slide-in relative pl-14 md:pl-0 flex flex-col md:flex-row md:items-stretch md:gap-6" style="min-height:${rowHeight(minutes)}px">
+          <div class="absolute left-[19px] top-5 w-3 h-3 rounded-full ring-4 ring-gray-950 z-10 md:hidden" style="background:${accent}"></div>
+          <div class="hidden md:block md:w-[45%] md:text-right md:pr-8 md:pt-4">
+            <span class="text-sm font-semibold text-gray-300">${timeLabel}</span>
+            <span class="text-xs text-gray-500 ml-2">${subLabel}</span>
+          </div>
+          <div class="hidden md:block md:absolute md:left-1/2 md:-translate-x-1/2 md:top-5 w-3 h-3 rounded-full ring-4 ring-gray-950 z-10" style="background:${accent}"></div>
+          <div class="stretch md:w-[45%] md:pl-8 flex-1 flex flex-col">${content}</div>
+        </div>`;
+    }
+
+    /** Tempo libero fra due blocchi: nella timeline è spazio vuoto, come nella realtà. */
+    function renderGap(minutes) {
+      const label = `${formatDuration(minutes)} liber${minutes === 1 ? 'o' : 'i'}`;
+      return `
+        <div class="relative pl-14 md:pl-0 flex md:flex-row md:items-center md:gap-6" style="min-height:${gapHeight(minutes)}px">
+          <div class="hidden md:block md:w-[45%] md:text-right md:pr-8">
+            <span class="text-xs text-gray-600">${label}</span>
+          </div>
+          <div class="md:w-[45%] md:pl-8 flex-1 flex items-center gap-3">
+            <span class="md:hidden text-xs text-gray-600 whitespace-nowrap">${label}</span>
+            <div class="flex-1 border-t border-dashed border-gray-800"></div>
+          </div>
+        </div>`;
+    }
+
+        /** Riga "adesso": si inserisce fra i blocchi, solo sul giorno corrente. */
+    function renderNowMarker() {
+      const label = `Adesso ${toClock(nowMinutes())}`;
+      return `
+        <div id="now-marker" class="relative pl-14 md:pl-0 md:flex md:items-center md:gap-6 -my-1">
+          <div class="absolute left-[19px] top-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-now ring-4 ring-gray-950 z-10 md:hidden"></div>
+          <div class="hidden md:block md:w-[45%] md:text-right md:pr-8">
+            <span class="text-xs font-semibold text-now" data-now-label>${label}</span>
+          </div>
+          <div class="hidden md:block md:absolute md:left-1/2 md:-translate-x-1/2 w-3 h-3 rounded-full bg-now ring-4 ring-gray-950 z-10"></div>
+          <div class="md:w-[45%] md:pl-8 flex-1 flex items-center gap-2">
+            <span class="md:hidden text-xs font-semibold text-now whitespace-nowrap" data-now-label>${label}</span>
+            <div class="h-px flex-1 bg-now/40"></div>
+          </div>
+        </div>`;
+    }
+
+    /**
+     * Indice della riga davanti alla quale va il marker "adesso", null se non serve.
+     * Lavora sugli orari di inizio delle righe già costruite (blocchi e spazi vuoti),
+     * non sui soli blocchi: altrimenti dentro un buco finirebbe dalla parte sbagliata.
+     */
+    function nowMarkerIndex() {
+      if (currentDay !== weekdayToday() || rowStarts.length === 0) return null;
+      const now = nowMinutes();
+      const next = rowStarts.findIndex((startMinute) => startMinute > now);
+      return next === -1 ? rowStarts.length : next;
+    }
+
+    function renderOverlapBox(cluster, done, allDone) {
+      const cards = cluster.tasks.map((t) => renderCard(t, done.includes(t.id), true)).join('');
+      return `
+        <div class="rounded-xl border p-3 space-y-3 ${allDone ? 'border-gray-800 bg-gray-900/30' : 'border-warn/40 bg-warn/[0.07]'}">
+          <div class="flex items-center gap-1.5 text-[11px] font-medium ${allDone ? 'text-gray-500' : 'text-warn'}">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"></path></svg>
+            ${cluster.tasks.length} attività sovrapposte
+          </div>
+          ${renderOverlapChart(cluster, done)}
+          <div class="space-y-2">${cards}</div>
+        </div>`;
+    }
+
+    function renderTasks() {
+      const tasks = data.days[currentDay] || [];
+      const done = data.completion_status[currentDay] || [];
+
+      $('day-title').textContent = DAY_LONG[currentDay];
+      $('day-progress').textContent = tasks.length ? `${done.length}/${tasks.length} completate` : '';
+      $('progress-bar').style.width = tasks.length ? (done.length / tasks.length * 100) + '%' : '0%';
+      $('empty-state').classList.toggle('hidden', tasks.length > 0);
+
+      const rows = [];
+      rowStarts = [];
+      const push = (startMinute, html) => { rowStarts.push(startMinute); rows.push(html); };
+
+      buildClusters(tasks).forEach((cluster, i, all) => {
+        const previous = all[i - 1];
+        const gap = previous ? cluster.start - previous.end : 0;
+        if (gap > 0) push(previous.end, renderGap(gap));
+
+        if (cluster.tasks.length === 1) {
+          const task = cluster.tasks[0];
+          const isDone = done.includes(task.id);
+          push(cluster.start, renderRow(accentOf(task, isDone),
+            escapeHtml(task.time) + '&ndash;' + escapeHtml(task.end),
+            formatDuration(taskMinutes(task)), renderCard(task, isDone), taskMinutes(task)));
+          return;
+        }
+
+        const allDone = cluster.tasks.every((t) => done.includes(t.id));
+        push(cluster.start, renderRow(allDone ? themeColor('done') : themeColor('warn'),
+          toClock(cluster.start) + '&ndash;' + toClock(cluster.end),
+          formatDuration(cluster.end - cluster.start),
+          renderOverlapBox(cluster, done, allDone), cluster.end - cluster.start));
+      });
+
+      markerIndex = nowMarkerIndex();
+      if (markerIndex !== null) rows.splice(markerIndex, 0, renderNowMarker());
+      $('tasks-list').innerHTML = rows.join('');
+
+      // Una sola volta per sessione, porta l'ora corrente al centro dello schermo.
+      if (!centeredOnNow && markerIndex !== null) {
+        centeredOnNow = true;
+        $('now-marker')?.scrollIntoView({ block: 'center' });
+      }
+    }
+
+    function selectDay(day) {
+      if (!DAYS.includes(day) || (day === currentDay && view === 'day')) return;
+      currentDay = day;
+      view = 'day';
+      // Senza questo si resta all'altezza del giorno precedente, spesso nel vuoto.
+      window.scrollTo({ top: 0 });
+      render();
+    }
+
+    function showWeek() {
+      if (view === 'week') return;
+      view = 'week';
+      window.scrollTo({ top: 0 });
+      render();
+    }
+
+    /** Unico punto d'ingresso per ridisegnare: sceglie la vista attiva. */
+    function render() {
+      const week = view === 'week';
+      document.querySelectorAll('[data-layout-width]').forEach((el) => {
+        el.classList.toggle('max-w-2xl', !week);
+        el.classList.toggle('max-w-screen-2xl', week);
+      });
+      $('week-view').classList.toggle('hidden', !week);
+      $('day-view').classList.toggle('hidden', week);
+      $('btn-add').classList.toggle('hidden', week);   // in settimana c'è un + per riga
+      renderDaySelector();
+      if (week) renderWeek(); else renderTasks();
+    }
+
+    // ------------------------------------------------------- vista settimanale
+
+    /*
+     * Asse verticale della settimana: pixel per minuto nei tratti lunghi, altezza
+     * minima di un tratto (quanto serve a una riga di titolo), margine sopra e sotto
+     * perché le etichette delle ore agli estremi non vengano tagliate.
+     */
+    const WEEK_PX_PER_MIN = 1.2;
+    const WEEK_MIN_SEGMENT = 22;
+    const WEEK_PAD = 10;
+
+    /** Sotto-colonne per le attività sovrapposte: la prima libera all'inizio. */
+    function assignLanes(tasks) {
+      const laneEnds = [];
+      return tasks.map((task) => {
+        const start = toMinutes(task.time);
+        let lane = laneEnds.findIndex((end) => end <= start);
+        if (lane === -1) lane = laneEnds.push(0) - 1;
+        laneEnds[lane] = toMinutes(task.end);
+        return { task, lane };
+      });
+    }
+
+    /**
+     * Asse condiviso da tutte le colonne, lineare a tratti. Ogni orario di inizio o
+     * fine di qualunque attività è un punto fisso, quindi le 08:30 cadono alla stessa
+     * altezza in tutti i giorni; ogni tratto fra due punti è alto quanto la sua durata
+     * ma mai meno di WEEK_MIN_SEGMENT, così anche 10 minuti hanno spazio per il titolo.
+     * Il prezzo è che le durate brevi risultano un po' gonfiate rispetto a quelle lunghe.
+     */
+    function buildTimeAxis(tasks) {
+      const marks = tasks.length
+        ? [...new Set(tasks.flatMap((t) => [toMinutes(t.time), toMinutes(t.end)]))].sort((a, b) => a - b)
+        : [6 * 60, 22 * 60];
+
+      // Estremi alle ore piene, per avere etichette pulite in cima e in fondo.
+      const first = Math.floor(marks[0] / 60) * 60;
+      const last = Math.ceil(marks[marks.length - 1] / 60) * 60;
+      if (marks[0] !== first) marks.unshift(first);
+      if (marks[marks.length - 1] !== last) marks.push(last);
+
+      const ys = [WEEK_PAD];
+      for (let i = 1; i < marks.length; i++) {
+        ys.push(ys[i - 1] + Math.max(WEEK_MIN_SEGMENT, (marks[i] - marks[i - 1]) * WEEK_PX_PER_MIN));
+      }
+
+      const y = (minute) => {
+        if (minute <= marks[0]) return ys[0];
+        for (let i = 1; i < marks.length; i++) {
+          if (minute <= marks[i]) {
+            return ys[i - 1] + ((minute - marks[i - 1]) / (marks[i] - marks[i - 1])) * (ys[i] - ys[i - 1]);
+          }
+        }
+        return ys[ys.length - 1];
+      };
+
+      return { from: first, to: last, height: ys[ys.length - 1] + WEEK_PAD, y };
+    }
+
+    let weekCenteredOnNow = false;
+
+    function weekLabel() {
+      if (!data.week_start) return 'Settimana';
+      const [y, m, d] = data.week_start.split('-').map(Number);
+      const start = new Date(y, m - 1, d);
+      const end = new Date(y, m - 1, d + 6);
+      const fmt = (date, opts) => date.toLocaleDateString('it-IT', opts);
+      return start.getMonth() === end.getMonth()
+        ? `Settimana ${start.getDate()}–${fmt(end, { day: 'numeric', month: 'long' })}`
+        : `Settimana ${fmt(start, { day: 'numeric', month: 'short' })} – ${fmt(end, { day: 'numeric', month: 'short' })}`;
+    }
+
+    function renderWeek() {
+      const everything = DAYS.flatMap((day) => data.days[day] || []);
+      const doneAll = DAYS.reduce((sum, day) => sum + (data.completion_status[day] || []).length, 0);
+      const weekRatio = everything.length ? doneAll / everything.length : 0;
+      const axis = buildTimeAxis(everything);
+      const today = weekdayToday();
+      const now = nowMinutes();
+
+      $('progress-bar').style.width = (weekRatio * 100) + '%';
+
+      // L'intestazione dei giorni resta attaccata sotto l'header dell'app mentre si scorre.
+      const appHeader = document.querySelector('#app-screen header');
+      document.documentElement.style.setProperty('--week-sticky-top', (appHeader ? appHeader.offsetHeight : 0) + 'px');
+
+      const hours = [];
+      for (let m = axis.from; m <= axis.to; m += 60) hours.push(m);
+
+      const gridLines = hours.map((m) =>
+        `<div class="absolute inset-x-0 border-t border-gray-800/60" style="top:${axis.y(m)}px"></div>`).join('');
+
+      const hourLabels = hours.map((m) => `
+        <span class="absolute right-2 -translate-y-1/2 text-[10px] text-gray-500 tabular-nums" style="top:${axis.y(m)}px">${toClock(m)}</span>`).join('');
+
+      const headers = DAYS.map((day) => {
+        const tasks = data.days[day] || [];
+        const done = (data.completion_status[day] || []).length;
+        const ratio = tasks.length ? done / tasks.length : 0;
+        const isToday = day === today;
+        return `
+          <div class="px-2 py-2 border-l border-gray-800 ${isToday ? 'bg-now/[0.05]' : ''}">
+            <div class="flex items-center justify-between gap-1">
+              <button type="button" data-open-day="${day}" title="Apri ${DAY_LONG[day]}"
+                class="min-w-0 text-left rounded-md px-1 -mx-1 hover:bg-gray-900 transition-colors">
+                <span class="block text-sm font-semibold truncate ${isToday ? 'text-now' : 'text-gray-200'}">${DAY_LONG[day]}</span>
+              </button>
+              <button type="button" data-add-day="${day}" title="Nuova attività ${DAY_LONG[day]}"
+                class="flex-shrink-0 w-6 h-6 rounded-md text-gray-500 hover:text-gray-100 hover:bg-gray-900 flex items-center justify-center transition-colors">
+                <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+              </button>
+            </div>
+            <div class="flex items-center gap-2 mt-1">
+              <span class="text-xs tabular-nums font-medium ${ratio === 1 ? 'text-gray-100' : 'text-gray-400'}">${done}/${tasks.length}</span>
+              <span class="flex-1 h-1 rounded-full bg-gray-800 overflow-hidden">
+                <span class="block h-full bg-blue-500 rounded-full" style="width:${ratio * 100}%"></span>
+              </span>
+            </div>
+          </div>`;
+      }).join('');
+
+      const columns = DAYS.map((day) => {
+        const tasks = data.days[day] || [];
+        const done = data.completion_status[day] || [];
+        const isToday = day === today;
+        const blocks = [];
+
+        // Sotto-colonne calcolate per blocco di sovrapposizioni, non per giorno:
+        // una sola sovrapposizione non deve dimezzare tutte le altre attività.
+        buildClusters(tasks).forEach((cluster) => {
+          const laned = assignLanes(cluster.tasks);
+          const lanes = Math.max(...laned.map((l) => l.lane + 1));
+
+          laned.forEach(({ task, lane }) => {
+            const isDone = done.includes(task.id);
+            const accent = accentOf(task, isDone);
+            const top = axis.y(toMinutes(task.time));
+            const height = Math.max(14, axis.y(toMinutes(task.end)) - top - 2);
+            const roomy = height >= 38;
+            const tip = `${task.time}–${task.end} · ${task.title}${task.note ? '\n' + task.note : ''}`
+              + `\n${isDone ? 'Fatta' : 'Da fare'} — clic: ${isDone ? 'annulla' : 'segna fatta'} · clic destro: modifica`;
+
+            blocks.push(`
+              <button type="button" data-week-task="${task.id}" data-week-day="${day}" title="${escapeHtml(tip)}"
+                class="absolute rounded-md border-l-[3px] overflow-hidden text-left px-1.5 transition hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-blue-500 ${isDone ? 'opacity-60' : ''}"
+                style="top:${top}px;height:${height}px;left:calc(${(lane / lanes) * 100}% + 2px);width:calc(${100 / lanes}% - 4px);border-left-color:${accent};background:${fade(accent, isDone ? 0.14 : 0.2)}">
+                <span class="block pointer-events-none ${roomy ? 'pt-1' : 'pt-[2px]'}">
+                  ${roomy ? `<span class="block text-[10px] leading-3 tabular-nums text-gray-500">${task.time}–${task.end}</span>` : ''}
+                  <span class="flex items-start gap-1 text-[11px] font-medium leading-[14px] ${isDone ? 'line-through text-gray-500' : ''}"
+                    style="${isDone ? '' : `color:${readable(accent)}`}">
+                    <span class="flex-shrink-0">${isDone ? '✓' : escapeHtml(task.icon || '')}</span>
+                    <span class="min-w-0 ${height >= 56 ? 'clamp-2' : 'truncate'}">${escapeHtml(task.title)}</span>
+                  </span>
+                </span>
+              </button>`);
+          });
+        });
+
+        const nowLine = isToday && now >= axis.from && now <= axis.to
+          ? `<div id="week-now" class="absolute inset-x-0 z-10 pointer-events-none" style="top:${axis.y(now)}px">
+               <div class="relative h-0.5 bg-now"><span class="absolute -left-1 -top-[3px] w-2 h-2 rounded-full bg-now"></span></div>
+             </div>`
+          : '';
+
+        return `
+          <div class="relative border-l border-gray-800 ${isToday ? 'bg-now/[0.03]' : ''}">
+            ${gridLines}
+            ${blocks.join('') || '<span class="absolute inset-x-0 top-6 text-center text-xs text-gray-600">Nessuna attività</span>'}
+            ${nowLine}
+          </div>`;
+      }).join('');
+
+      $('week-view').innerHTML = `
+        <div class="flex items-end justify-between gap-6 mb-4">
+          <div>
+            <h2 class="text-xl font-bold">${weekLabel()}</h2>
+            <p class="text-xs text-gray-500 mt-1">Clic su un'attività per segnarla fatta, clic destro per modificarla. I punteggi si azzerano lunedì.</p>
+          </div>
+          <div class="text-right flex-shrink-0">
+            <div class="text-3xl font-bold tabular-nums leading-none">${doneAll}<span class="text-gray-500 text-xl">/${everything.length}</span></div>
+            <div class="text-xs text-gray-500 mt-1">${Math.round(weekRatio * 100)}% della settimana</div>
+          </div>
+        </div>
+        <div class="border border-gray-800 rounded-xl">
+          <div class="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))] sticky z-20 bg-gray-950/95 backdrop-blur border-b border-gray-800 rounded-t-xl"
+            style="top:var(--week-sticky-top, 0px)">
+            <div></div>
+            ${headers}
+          </div>
+          <div class="grid grid-cols-[3.5rem_repeat(7,minmax(0,1fr))]" style="height:${axis.height}px">
+            <div class="relative">${hourLabels}</div>
+            ${columns}
+          </div>
+        </div>`;
+
+      // Una sola volta per sessione, porta l'ora corrente in vista.
+      if (!weekCenteredOnNow && $('week-now')) {
+        weekCenteredOnNow = true;
+        $('week-now').scrollIntoView({ block: 'center' });
+      }
+    }
+
+    // ----------------------------------------------------------------- modal
+
+    function openModal(taskId = null) {
+      const form = $('task-form');
+      form.reset();
+      $('modal-error').classList.add('hidden');
+
+      if (taskId) {
+        const task = (data.days[currentDay] || []).find((t) => t.id === taskId);
+        if (!task) return;
+        $('modal-title').textContent = 'Modifica attività';
+        $('task-id').value = task.id;
+        $('task-title').value = task.title;
+        $('task-icon').value = task.icon || '';
+        $('task-note').value = task.note || '';
+        $('task-time').value = task.time;
+        $('task-end').value = task.end;
+        selectedCategory = task.color;
+        $('btn-delete').classList.remove('hidden');
+      } else {
+        $('modal-title').textContent = 'Nuova attività';
+        $('task-id').value = '';
+        selectedCategory = Object.keys(categories)[0] || null;
+        $('btn-delete').classList.add('hidden');
+      }
+
+      renderCategorySelector();
+      renderIconSuggestions();
+      updateDurationHint();
+      $('modal').classList.remove('hidden');
+      if (!taskId) setTimeout(() => $('task-title').focus(), 50);
+    }
+
+    const closeModal = () => $('modal').classList.add('hidden');
+    const modalOpen = () => !$('modal').classList.contains('hidden');
+
+    /** Mostra la durata risultante, o l'incoerenza fra inizio e fine. */
+    function updateDurationHint() {
+      const start = $('task-time').value;
+      const end = $('task-end').value;
+      const hint = $('duration-hint');
+      if (!start || !end) {
+        hint.textContent = '';
+        return;
+      }
+      const minutes = toMinutes(end) - toMinutes(start);
+      hint.textContent = minutes > 0 ? 'Durata: ' + formatDuration(minutes) : 'La fine deve essere dopo l\'inizio';
+      hint.className = 'text-xs -mt-1 ' + (minutes > 0 ? 'text-gray-500' : 'text-warn');
+    }
+
+    function renderIconSuggestions() {
+      const current = $('task-icon').value;
+      $('icon-suggestions').innerHTML = SUGGESTED_ICONS.map((icon) => `
+        <button type="button" data-icon="${icon}"
+          class="flex-shrink-0 w-8 h-8 rounded-lg text-base leading-none flex items-center justify-center transition-colors ${
+            icon === current ? 'bg-gray-800' : 'hover:bg-gray-800'
+          }">${icon}</button>`).join('');
+    }
+
+    function modalError(message) {
+      const el = $('modal-error');
+      el.textContent = message;
+      el.classList.remove('hidden');
+    }
+
+    // ------------------------------------------------------ sottoscrizione ICS
+
+    let icsCategories = new Set();
+
+    const icsModalOpen = () => !$('ics-modal').classList.contains('hidden');
+    const closeIcsModal = () => $('ics-modal').classList.add('hidden');
+
+    function icsCurrentUrl() {
+      if (!data.ics_url) return '';
+      const chosen = [...icsCategories];
+      return data.ics_url + (chosen.length ? '&categories=' + chosen.join(',') : '');
+    }
+
+    function renderIcsModal() {
+      $('ics-categories').innerHTML = Object.entries(categories).map(([key, cat]) => {
+        const on = icsCategories.has(key);
+        return `<button type="button" data-ics-category="${key}"
+          style="${on ? `border-color:${cat.color};background:${fade(cat.color, 0.18)};color:${readable(cat.color)}` : ''}"
+          class="px-3 py-2.5 rounded-xl border text-xs font-medium transition-all ${
+            on ? '' : 'border-gray-800 text-gray-400 hover:border-gray-700'
+          }">${escapeHtml(cat.label)}</button>`;
+      }).join('');
+
+      const url = icsCurrentUrl();
+      $('ics-url').value = url;
+      // webcal:// fa aprire l'app Calendario invece del browser.
+      $('ics-webcal').href = url.replace(/^https?:/, 'webcal:');
+    }
+
+    $('btn-subscribe').addEventListener('click', () => {
+      if (!data.ics_url) {
+        return toast('Feed disattivato: imposta ICS_TOKEN in config.php');
+      }
+      renderIcsModal();
+      $('ics-modal').classList.remove('hidden');
+    });
+
+    $('ics-modal').addEventListener('click', (e) => {
+      if (e.target.closest('[data-close-ics]')) return closeIcsModal();
+      const button = e.target.closest('[data-ics-category]');
+      if (!button) return;
+      const key = button.dataset.icsCategory;
+      icsCategories.has(key) ? icsCategories.delete(key) : icsCategories.add(key);
+      renderIcsModal();
+    });
+
+    $('btn-copy-ics').addEventListener('click', async () => {
+      const field = $('ics-url');
+      try {
+        // navigator.clipboard esiste solo in contesto sicuro: su http serve il ripiego.
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(field.value);
+        } else {
+          field.select();
+          field.setSelectionRange(0, field.value.length);
+          if (!document.execCommand('copy')) throw new Error('copia rifiutata');
+        }
+        toast('Indirizzo copiato', 'info');
+      } catch {
+        field.select();
+        toast('Copia non riuscita: usa cmd+C');
+      }
+    });
+
+    // ------------------------------------------------------------------ tema
+
+    function applyTheme(light, { remember = true } = {}) {
+      isLight = light;
+      document.documentElement.dataset.theme = light ? 'light' : 'dark';
+      document.querySelector('meta[name="theme-color"]')
+        ?.setAttribute('content', light ? '#ffffff' : '#030712');
+      // L'icona mostra la destinazione, non lo stato: luna = "passa allo scuro".
+      // I bottoni sono due (header e login), quindi si aggiornano entrambi.
+      document.querySelectorAll('[data-theme-icon="moon"]').forEach((el) => el.classList.toggle('hidden', !light));
+      document.querySelectorAll('[data-theme-icon="sun"]').forEach((el) => el.classList.toggle('hidden', light));
+
+      if (remember) {
+        try { localStorage.setItem(THEME_KEY, light ? 'light' : 'dark'); } catch {}
+      }
+      // I colori delle card sono calcolati in JS: vanno ricalcolati a ogni cambio.
+      if (data) { renderCategorySelector(); render(); }
+    }
+
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('[data-theme-toggle]')) applyTheme(!isLight);
+    });
+
+    // Finché l'utente non sceglie, l'app segue il tema di sistema anche a caldo.
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', (e) => {
+      let saved = null;
+      try { saved = localStorage.getItem(THEME_KEY); } catch {}
+      if (!saved) applyTheme(!e.matches, { remember: false });
+    });
+
+    // --------------------------------------------------------- copia giorno
+
+    const copyModalOpen = () => !$('copy-modal').classList.contains('hidden');
+    const closeCopyModal = () => $('copy-modal').classList.add('hidden');
+
+    function openCopyModal() {
+      const source = data.days[currentDay] || [];
+      $('copy-intro').textContent = source.length
+        ? `Copia le ${source.length} attività di ${DAY_LONG[currentDay]} in:`
+        : `${DAY_LONG[currentDay]} non ha attività da copiare.`;
+      $('copy-error').classList.add('hidden');
+      $('btn-copy-confirm').disabled = source.length === 0;
+
+      $('copy-targets').innerHTML = DAYS.filter((day) => day !== currentDay).map((day) => {
+        const existing = (data.days[day] || []).length;
+        return `
+          <label class="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-gray-800 hover:border-gray-700 cursor-pointer transition-colors">
+            <input type="checkbox" value="${day}" class="w-4 h-4 rounded accent-blue-500">
+            <span class="text-sm flex-1">${DAY_LONG[day]}</span>
+            ${existing ? `<span class="text-xs text-warn/80">${existing} da sostituire</span>` : ''}
+          </label>`;
+      }).join('');
+
+      $('copy-modal').classList.remove('hidden');
+    }
+
+    $('btn-copy-day').addEventListener('click', openCopyModal);
+
+    $('copy-modal').addEventListener('click', (e) => {
+      if (e.target.closest('[data-close-copy]')) closeCopyModal();
+    });
+
+    $('copy-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const targets = [...$('copy-targets').querySelectorAll('input:checked')].map((i) => i.value);
+      if (!targets.length) {
+        const error = $('copy-error');
+        error.textContent = 'Scegli almeno un giorno di destinazione';
+        error.classList.remove('hidden');
+        return;
+      }
+
+      const button = $('btn-copy-confirm');
+      button.disabled = true;
+      run(async () => {
+        const res = await api('day/copy', { from: currentDay, to: targets });
+        await loadData();
+        closeCopyModal();
+        render();
+        toast(`${res.copied} attività copiate in ${targets.length} giorn${targets.length === 1 ? 'o' : 'i'}`, 'info');
+      }).finally(() => { button.disabled = false; });
+    });
+
+    // ----------------------------------------------------------------- eventi
+
+    $('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const button = $('login-submit');
+      button.disabled = true;
+      run(async () => {
+        const res = await api('login', {
+          username: $('login-user').value,
+          password: $('login-pass').value
+        });
+        csrf = res.csrf;
+        $('login-pass').value = '';
+        $('login-error').classList.add('hidden');
+        await loadData();
+        showApp();
+        render();
+      }).finally(() => { button.disabled = false; });
+    });
+
+    $('btn-logout').addEventListener('click', () => run(async () => {
+      await api('logout', {});
+      location.reload();
+    }));
+
+    $('btn-add').addEventListener('click', () => openModal());
+
+    $('day-selector').addEventListener('click', (e) => {
+      if (e.target.closest('[data-week-tab]')) return showWeek();
+      const button = e.target.closest('[data-day]');
+      if (button) selectDay(button.dataset.day);
+    });
+
+    // --- interazioni della vista settimanale (delegate: la griglia si ridisegna spesso)
+    function toggleTask(day, id) {
+      return run(async () => {
+        const res = await api('task/toggle', { day, id });
+        const list = data.completion_status[day] || [];
+        data.completion_status[day] = res.done ? [...list, id] : list.filter((t) => t !== id);
+        render();
+      });
+    }
+
+    $('week-view').addEventListener('click', (e) => {
+      const task = e.target.closest('[data-week-task]');
+      if (task) return toggleTask(task.dataset.weekDay, task.dataset.weekTask);
+
+      const open = e.target.closest('[data-open-day]');
+      if (open) return selectDay(open.dataset.openDay);
+
+      const add = e.target.closest('[data-add-day]');
+      if (add) {
+        currentDay = add.dataset.addDay;
+        openModal();
+      }
+    });
+
+    $('week-view').addEventListener('contextmenu', (e) => {
+      const task = e.target.closest('[data-week-task]');
+      if (!task) return;
+      e.preventDefault();
+      currentDay = task.dataset.weekDay;
+      openModal(task.dataset.weekTask);
+    });
+
+    // Se la finestra si stringe sotto il desktop, la griglia non ci sta più.
+    desktopQuery.addEventListener('change', (e) => {
+      if (!e.matches && view === 'week' && data) {
+        view = 'day';
+        render();
+      }
+    });
+
+    $('category-selector').addEventListener('click', (e) => {
+      const button = e.target.closest('[data-category]');
+      if (!button) return;
+      selectedCategory = button.dataset.category;
+      renderCategorySelector();
+    });
+
+    $('tasks-list').addEventListener('click', (e) => {
+      const toggle = e.target.closest('[data-toggle]');
+      if (toggle) return toggleTask(currentDay, toggle.dataset.toggle);
+      const edit = e.target.closest('[data-edit]');
+      if (edit) openModal(edit.dataset.edit);
+    });
+
+    $('modal').addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]')) closeModal();
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape') return;
+      if (modalOpen()) closeModal();
+      if (copyModalOpen()) closeCopyModal();
+      if (icsModalOpen()) closeIcsModal();
+    });
+
+    $('task-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const time = $('task-time').value;
+      const end = $('task-end').value;
+      if (toMinutes(end) <= toMinutes(time)) {
+        return modalError("L'ora di fine deve essere successiva a quella di inizio");
+      }
+
+      const day = currentDay;
+      const task = {
+        id: $('task-id').value || undefined,
+        title: $('task-title').value.trim(),
+        time,
+        end,
+        color: selectedCategory,
+        icon: firstGrapheme($('task-icon').value),
+        note: $('task-note').value.trim()
+      };
+
+      const button = $('btn-save');
+      button.disabled = true;
+      run(async () => {
+        const res = await api('task/save', { day, task });
+        const list = data.days[day];
+        const index = list.findIndex((t) => t.id === res.task.id);
+        if (index === -1) list.push(res.task); else list[index] = res.task;
+        list.sort((a, b) => a.time.localeCompare(b.time) || a.end.localeCompare(b.end));
+        closeModal();
+        render();
+      }).then((ok) => { if (!ok) modalError('Salvataggio non riuscito'); })
+        .finally(() => { button.disabled = false; });
+    });
+
+    $('icon-suggestions').addEventListener('click', (e) => {
+      const button = e.target.closest('[data-icon]');
+      if (!button) return;
+      // Ricliccare l'icona già scelta la toglie.
+      $('task-icon').value = $('task-icon').value === button.dataset.icon ? '' : button.dataset.icon;
+      renderIconSuggestions();
+    });
+
+    $('task-icon').addEventListener('input', () => {
+      $('task-icon').value = firstGrapheme($('task-icon').value);
+      renderIconSuggestions();
+    });
+
+    $('task-time').addEventListener('change', () => {
+      const start = $('task-time').value;
+      const end = $('task-end').value;
+      // Se la fine manca o non ha più senso, proponi mezz'ora dopo l'inizio.
+      if (start && (!end || toMinutes(end) <= toMinutes(start))) {
+        $('task-end').value = toClock(toMinutes(start) + 30);
+      }
+      updateDurationHint();
+    });
+
+    $('task-end').addEventListener('change', updateDurationHint);
+
+    $('btn-delete').addEventListener('click', () => {
+      const id = $('task-id').value;
+      if (!id || !confirm('Eliminare questa attività?')) return;
+      const day = currentDay;
+      run(async () => {
+        await api('task/delete', { day, id });
+        data.days[day] = data.days[day].filter((t) => t.id !== id);
+        data.completion_status[day] = data.completion_status[day].filter((t) => t !== id);
+        closeModal();
+        render();
+      });
+    });
+
+    // Swipe orizzontale fra i giorni (solo se il modal è chiuso).
+    let touchStart = null;
+    document.addEventListener('touchstart', (e) => {
+      touchStart = (view === 'week' || modalOpen() || copyModalOpen() || icsModalOpen())
+        ? null
+        : { x: e.changedTouches[0].screenX, y: e.changedTouches[0].screenY };
+    }, { passive: true });
+
+    document.addEventListener('touchend', (e) => {
+      if (!touchStart) return;
+      const dx = touchStart.x - e.changedTouches[0].screenX;
+      const dy = touchStart.y - e.changedTouches[0].screenY;
+      touchStart = null;
+      if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+      const index = DAYS.indexOf(currentDay);
+      if (dx > 0 && index < DAYS.length - 1) selectDay(DAYS[index + 1]);
+      if (dx < 0 && index > 0) selectDay(DAYS[index - 1]);
+    }, { passive: true });
+
+    // Se l'app resta aperta a cavallo della mezzanotte, ricarica lo stato al rientro.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || !data) return;
+      run(async () => {
+        await loadData();
+        render();
+      });
+    });
+
+    // La riga "adesso" avanza da sola: ridisegna solo se cambia di posizione,
+    // altrimenti si limita a riscrivere l'orario per non far ripartire le animazioni.
+    setInterval(() => {
+      if (data && view === 'week') return renderWeek();
+      if (!data || currentDay !== weekdayToday()) return;
+      const wanted = nowMarkerIndex();
+      if (wanted !== markerIndex) {
+        renderTasks();
+        return;
+      }
+      const label = `Adesso ${toClock(nowMinutes())}`;
+      document.querySelectorAll('[data-now-label]').forEach((el) => { el.textContent = label; });
+    }, 30000);
+
+    // ------------------------------------------------------------------ avvio
+
+    (async () => {
+      applyTheme(isLight, { remember: false });
+      try {
+        const session = await api('session');
+        csrf = session.csrf;
+        if (!session.authenticated) return showLogin();
+        await loadData();
+        showApp();
+        render();
+      } catch (err) {
+        showLogin(err.message);
+      }
+    })();
+  })();
+  </script>
+</body>
+</html>

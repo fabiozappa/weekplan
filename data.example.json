@@ -1,0 +1,451 @@
+{
+    "week_start": "2026-01-05",
+    "completion_status": {
+        "lunedi": [],
+        "martedi": [],
+        "mercoledi": [],
+        "giovedi": [],
+        "venerdi": [],
+        "sabato": [],
+        "domenica": []
+    },
+    "days": {
+        "lunedi": [
+            {
+                "id": "task-70454d949252923b",
+                "title": "Sveglia e colazione",
+                "time": "07:00",
+                "end": "07:30",
+                "color": "casa",
+                "icon": "☕",
+                "note": ""
+            },
+            {
+                "id": "task-e7e31253a5bd46de",
+                "title": "Palestra",
+                "time": "07:30",
+                "end": "08:30",
+                "color": "fitness",
+                "icon": "🏋️",
+                "note": "Allenamento del mattino"
+            },
+            {
+                "id": "task-40f216abc23a5f2c",
+                "title": "Lavoro",
+                "time": "09:00",
+                "end": "13:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-42f8bf56d74c2ba3",
+                "title": "Pranzo",
+                "time": "13:00",
+                "end": "14:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-28f67e10d4284211",
+                "title": "Lavoro",
+                "time": "14:00",
+                "end": "18:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-1fe8570f6745260a",
+                "title": "Lettura",
+                "time": "18:30",
+                "end": "19:00",
+                "color": "studio",
+                "icon": "📚",
+                "note": "30 minuti, anche spezzati"
+            },
+            {
+                "id": "task-b81fc2bac4e78165",
+                "title": "Cena",
+                "time": "20:00",
+                "end": "21:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-6eaa33355aac06ae",
+                "title": "Progetto personale",
+                "time": "21:30",
+                "end": "22:15",
+                "color": "progetti",
+                "icon": "🎯",
+                "note": ""
+            }
+        ],
+        "martedi": [
+            {
+                "id": "task-fb54b7cd2ec4f29d",
+                "title": "Sveglia e colazione",
+                "time": "07:00",
+                "end": "07:30",
+                "color": "casa",
+                "icon": "☕",
+                "note": ""
+            },
+            {
+                "id": "task-cf4e2142a9c169e1",
+                "title": "Corsa",
+                "time": "07:30",
+                "end": "08:30",
+                "color": "fitness",
+                "icon": "🏃",
+                "note": "Allenamento del mattino"
+            },
+            {
+                "id": "task-536c13e60c9ee688",
+                "title": "Lavoro",
+                "time": "09:00",
+                "end": "13:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-f223612d645870ed",
+                "title": "Pranzo",
+                "time": "13:00",
+                "end": "14:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-5bf100f67ef4d69a",
+                "title": "Lavoro",
+                "time": "14:00",
+                "end": "18:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-47323d63c858f6f6",
+                "title": "Lettura",
+                "time": "18:30",
+                "end": "19:00",
+                "color": "studio",
+                "icon": "📚",
+                "note": "30 minuti, anche spezzati"
+            },
+            {
+                "id": "task-018a0cf5c8216da4",
+                "title": "Cena",
+                "time": "20:00",
+                "end": "21:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-eb8344d93f329fc0",
+                "title": "Progetto personale",
+                "time": "21:30",
+                "end": "22:15",
+                "color": "progetti",
+                "icon": "🎯",
+                "note": ""
+            }
+        ],
+        "mercoledi": [
+            {
+                "id": "task-be4d2ab189bec319",
+                "title": "Sveglia e colazione",
+                "time": "07:00",
+                "end": "07:30",
+                "color": "casa",
+                "icon": "☕",
+                "note": ""
+            },
+            {
+                "id": "task-d57dfb5bc8e74237",
+                "title": "Palestra",
+                "time": "07:30",
+                "end": "08:30",
+                "color": "fitness",
+                "icon": "🏋️",
+                "note": "Allenamento del mattino"
+            },
+            {
+                "id": "task-d9191e2be25dae97",
+                "title": "Lavoro",
+                "time": "09:00",
+                "end": "13:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-ff390ea4d5b6b997",
+                "title": "Pranzo",
+                "time": "13:00",
+                "end": "14:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-13ebb2b7567ff6ea",
+                "title": "Lavoro",
+                "time": "14:00",
+                "end": "18:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-f29a55a8275f35eb",
+                "title": "Lettura",
+                "time": "18:30",
+                "end": "19:00",
+                "color": "studio",
+                "icon": "📚",
+                "note": "30 minuti, anche spezzati"
+            },
+            {
+                "id": "task-1bf40144374efcdc",
+                "title": "Cena",
+                "time": "20:00",
+                "end": "21:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-2c7cb8b95877a6ce",
+                "title": "Progetto personale",
+                "time": "21:30",
+                "end": "22:15",
+                "color": "progetti",
+                "icon": "🎯",
+                "note": ""
+            }
+        ],
+        "giovedi": [
+            {
+                "id": "task-f501a6d7152a2927",
+                "title": "Sveglia e colazione",
+                "time": "07:00",
+                "end": "07:30",
+                "color": "casa",
+                "icon": "☕",
+                "note": ""
+            },
+            {
+                "id": "task-4a5f2de3a3846d0e",
+                "title": "Riposo attivo",
+                "time": "07:30",
+                "end": "08:30",
+                "color": "fitness",
+                "icon": "🧘",
+                "note": "Allenamento del mattino"
+            },
+            {
+                "id": "task-3235e718198230b6",
+                "title": "Lavoro",
+                "time": "09:00",
+                "end": "13:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-d8f800b287c3276d",
+                "title": "Pranzo",
+                "time": "13:00",
+                "end": "14:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-599721ad0bc4645b",
+                "title": "Lavoro",
+                "time": "14:00",
+                "end": "18:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-e0ae0116be88af3f",
+                "title": "Lettura",
+                "time": "18:30",
+                "end": "19:00",
+                "color": "studio",
+                "icon": "📚",
+                "note": "30 minuti, anche spezzati"
+            },
+            {
+                "id": "task-167d09c68fe355b4",
+                "title": "Cena",
+                "time": "20:00",
+                "end": "21:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-1f736a24c4df59d5",
+                "title": "Progetto personale",
+                "time": "21:30",
+                "end": "22:15",
+                "color": "progetti",
+                "icon": "🎯",
+                "note": ""
+            }
+        ],
+        "venerdi": [
+            {
+                "id": "task-928ee22ed400c34f",
+                "title": "Sveglia e colazione",
+                "time": "07:00",
+                "end": "07:30",
+                "color": "casa",
+                "icon": "☕",
+                "note": ""
+            },
+            {
+                "id": "task-62e948a2b040f508",
+                "title": "Palestra",
+                "time": "07:30",
+                "end": "08:30",
+                "color": "fitness",
+                "icon": "🏋️",
+                "note": "Allenamento del mattino"
+            },
+            {
+                "id": "task-80ea1956054c5c01",
+                "title": "Lavoro",
+                "time": "09:00",
+                "end": "13:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-def6a96d3acab57f",
+                "title": "Pranzo",
+                "time": "13:00",
+                "end": "14:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-37611953338f3c98",
+                "title": "Lavoro",
+                "time": "14:00",
+                "end": "18:00",
+                "color": "lavoro",
+                "icon": "💻",
+                "note": ""
+            },
+            {
+                "id": "task-54e60090d98a4efd",
+                "title": "Lettura",
+                "time": "18:30",
+                "end": "19:00",
+                "color": "studio",
+                "icon": "📚",
+                "note": "30 minuti, anche spezzati"
+            },
+            {
+                "id": "task-bf6eb2fc3f706b83",
+                "title": "Cena",
+                "time": "20:00",
+                "end": "21:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-a48e9ea2834dd3c3",
+                "title": "Progetto personale",
+                "time": "21:30",
+                "end": "22:15",
+                "color": "progetti",
+                "icon": "🎯",
+                "note": ""
+            }
+        ],
+        "sabato": [
+            {
+                "id": "task-6376a2eacdab32eb",
+                "title": "Colazione lenta",
+                "time": "09:00",
+                "end": "10:00",
+                "color": "casa",
+                "icon": "☕",
+                "note": ""
+            },
+            {
+                "id": "task-9970fec042cd0431",
+                "title": "Commissioni e spesa",
+                "time": "10:00",
+                "end": "12:30",
+                "color": "casa",
+                "icon": "🛒",
+                "note": ""
+            },
+            {
+                "id": "task-9c70307c56bfd38c",
+                "title": "Tempo libero",
+                "time": "15:00",
+                "end": "18:00",
+                "color": "altro",
+                "icon": "🎉",
+                "note": ""
+            },
+            {
+                "id": "task-8b938858bec2cfa8",
+                "title": "Cena fuori",
+                "time": "20:00",
+                "end": "21:30",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            }
+        ],
+        "domenica": [
+            {
+                "id": "task-c9d397cdcc3e66a3",
+                "title": "Camminata",
+                "time": "09:30",
+                "end": "11:00",
+                "color": "fitness",
+                "icon": "🚶",
+                "note": ""
+            },
+            {
+                "id": "task-4dc5981da8236df3",
+                "title": "Pranzo in famiglia",
+                "time": "12:30",
+                "end": "14:00",
+                "color": "casa",
+                "icon": "🍽️",
+                "note": ""
+            },
+            {
+                "id": "task-bf5679200bf7abe1",
+                "title": "Pianificazione settimana",
+                "time": "18:00",
+                "end": "19:00",
+                "color": "progetti",
+                "icon": "📝",
+                "note": "Rivedere la griglia e prepararsi al lunedì"
+            }
+        ]
+    }
+}

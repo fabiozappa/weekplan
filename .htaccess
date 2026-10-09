@@ -1,0 +1,25 @@
+# Tutto passa dal front controller, i file di appoggio non sono servibili.
+<FilesMatch "\.(json|lock|tmp|md)$">
+    Require all denied
+</FilesMatch>
+
+# Difesa in profondità: se PHP fosse disattivato, config.php non deve essere leggibile.
+<Files "config.php">
+    Require all denied
+</Files>
+
+# Il frontend viene servito da index.php, non serve raggiungerlo direttamente.
+<Files "app.html">
+    Require all denied
+</Files>
+
+DirectoryIndex index.php
+
+# Nessun elenco di file quando manca un indice (es. backups/).
+Options -Indexes
+
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "same-origin"
+    Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>

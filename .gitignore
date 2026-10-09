@@ -1,0 +1,12 @@
+# Configurazione locale: contiene credenziali e il token del feed ICS
+config.php
+
+# Dati personali
+data.json
+data.json.tmp
+data.lock
+backups/
+*.bak
+*.ics
+
+.DS_Store
